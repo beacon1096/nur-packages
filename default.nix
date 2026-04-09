@@ -20,6 +20,7 @@
   overlays = import ./overlays; # nixpkgs overlays
 
   example-package = pkgs.callPackage ./pkgs/example-package { };
+  horizon-bin = pkgs.callPackage ./pkgs/horizon { };
   octocode = pkgs.callPackage ./pkgs/octocode { };
   # some-qt5-package = pkgs.libsForQt5.callPackage ./pkgs/some-qt5-package { };
   # ...
