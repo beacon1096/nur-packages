@@ -22,6 +22,8 @@
   example-package = pkgs.callPackage ./pkgs/example-package { };
   horizon-bin = pkgs.callPackage ./pkgs/horizon { };
   octocode = pkgs.callPackage ./pkgs/octocode { };
+  dimcode = pkgs.callPackage ./pkgs/dimcode { };
+  dimagent = pkgs.callPackage ./pkgs/dimagent { };
   # some-qt5-package = pkgs.libsForQt5.callPackage ./pkgs/some-qt5-package { };
   # ...
 }
