@@ -23,6 +23,8 @@
   bakaxl-bunny = pkgs.callPackage ./pkgs/bakaxl-bunny { };
   horizon-bin = pkgs.callPackage ./pkgs/horizon { };
   octocode = pkgs.callPackage ./pkgs/octocode { };
+  dimcode = pkgs.callPackage ./pkgs/dimcode { };
+  dimagent = pkgs.callPackage ./pkgs/dimagent { };
   # some-qt5-package = pkgs.libsForQt5.callPackage ./pkgs/some-qt5-package { };
   # ...
 }
