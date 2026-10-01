@@ -23,8 +23,9 @@
   bakaxl-bunny = pkgs.callPackage ./pkgs/bakaxl-bunny { };
   horizon-bin = pkgs.callPackage ./pkgs/horizon { };
   octocode = pkgs.callPackage ./pkgs/octocode { };
-  # `zenity` is only available as `pkgs.zenity` on recent nixpkgs and as
-  # `pkgs.gnome.zenity` on the revision pinned in flake.lock.
+  # `zenity` is a top-level package on current nixpkgs but only exists as
+  # `pkgs.gnome.zenity` on older revisions, such as the ones the CI matrix
+  # builds against through NIX_PATH.
   lzc-client-desktop-bin = pkgs.callPackage ./pkgs/lzc-client-desktop-bin {
     zenity = pkgs.zenity or pkgs.gnome.zenity;
   };

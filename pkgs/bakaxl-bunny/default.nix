@@ -16,7 +16,7 @@
   openssl,
   pango,
   webkitgtk_4_1,
-  wrapGAppsHook,
+  wrapGAppsHook3,
 }:
 
 let
@@ -34,7 +34,7 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     autoPatchelfHook
     dpkg
-    wrapGAppsHook
+    wrapGAppsHook3
   ];
 
   buildInputs = [
