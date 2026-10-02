@@ -29,6 +29,7 @@
   lzc-client-desktop-bin = pkgs.callPackage ./pkgs/lzc-client-desktop-bin {
     zenity = pkgs.zenity or pkgs.gnome.zenity;
   };
+  hclient-cli-bin = pkgs.callPackage ./pkgs/hclient-cli-bin { };
   # some-qt5-package = pkgs.libsForQt5.callPackage ./pkgs/some-qt5-package { };
   # ...
 }
