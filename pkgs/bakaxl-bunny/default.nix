@@ -16,11 +16,14 @@
   openssl,
   pango,
   webkitgtk_4_1,
+  wrapGAppsHook ? null,
   wrapGAppsHook3,
 }:
 
 let
   releaseVersion = "4.0.0+bunny-aac68df";
+  # callPackage may supply nixpkgs' throwing compatibility alias automatically.
+  legacyWrapGAppsHook = builtins.tryEval wrapGAppsHook;
 in
 stdenv.mkDerivation {
   pname = "bakaxl-bunny";
@@ -34,7 +37,12 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     autoPatchelfHook
     dpkg
-    wrapGAppsHook3
+    (
+      if legacyWrapGAppsHook.success && legacyWrapGAppsHook.value != null then
+        legacyWrapGAppsHook.value
+      else
+        wrapGAppsHook3
+    )
   ];
 
   buildInputs = [
