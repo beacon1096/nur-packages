@@ -23,6 +23,7 @@
   bakaxl-bunny = pkgs.callPackage ./pkgs/bakaxl-bunny { };
   horizon-bin = pkgs.callPackage ./pkgs/horizon { };
   octocode = pkgs.callPackage ./pkgs/octocode { };
+  strata = pkgs.callPackage ./pkgs/strata { };
   # `zenity` is a top-level package on current nixpkgs but only exists as
   # `pkgs.gnome.zenity` on older revisions, such as the ones the CI matrix
   # builds against through NIX_PATH.
