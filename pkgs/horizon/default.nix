@@ -15,11 +15,11 @@
 
 stdenv.mkDerivation rec {
   pname = "horizon-bin";
-  version = "0.2.4";
+  version = "0.2.7";
 
   src = fetchurl {
     url = "https://github.com/peters/horizon/releases/download/v${version}/horizon-linux-x64.tar.gz";
-    hash = "sha256-T6AWAGwjiPcnP0E5gPdY/lg5JQlyDvRd8awucqD0hMA=";
+    hash = "sha256-AD2j0z93LpOPMuTXozv0OsY0a9R134nZtNttOvcXw5I=";
   };
 
   sourceRoot = ".";

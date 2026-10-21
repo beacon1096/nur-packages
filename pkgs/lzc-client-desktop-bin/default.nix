@@ -12,16 +12,23 @@
   cairo,
   cups,
   dbus,
+  e2fsprogs,
   expat,
   gdk-pixbuf,
   glib,
   gtk3,
   libcap,
+  libgpg-error,
+  libkrb5,
+  libva,
+  libvdpau,
   libxkbcommon,
   mesa,
   nspr,
   nss,
   pango,
+  pipewire,
+  qt6,
   udev,
   util-linux,
   xdg-utils,
@@ -31,16 +38,20 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "lzc-client-desktop";
-  version = "2.0.11";
+  version = "2.0.30";
 
   src = fetchurl {
     url = "https://dl.lazycat.cloud/client/desktop/stable/lzc-client-desktop_v${finalAttrs.version}.tar.zst";
-    hash = "sha256-EFnVqkKWr0L8xovoEVGFAQ/Vj2nuwpfDn9f3S3k6nBc=";
+    hash = "sha256-ShoUvXPEH9WSUO+dd9pd/K13NQGcaov+6FG6QJCJDQA=";
   };
 
   # The archive unpacks straight into the build directory instead of a
   # single top-level directory.
   sourceRoot = ".";
+
+  # qt6.qtwayland only provides libQt6WlShellIntegration.so.6 for the bundled
+  # player; the Electron application is wrapped manually instead.
+  dontWrapQtApps = true;
 
   nativeBuildInputs = [
     autoPatchelfHook
@@ -60,16 +71,24 @@ stdenv.mkDerivation (finalAttrs: {
     cairo
     cups
     dbus
+    # libcom_err.so.2, needed by the krb5 libraries the bundled player ships
+    e2fsprogs.out
     expat
     gdk-pixbuf
     glib
     gtk3
     libcap
+    libgpg-error
+    libkrb5
+    libva
+    libvdpau
     libxkbcommon
     mesa
     nspr
     nss
     pango
+    pipewire
+    qt6.qtwayland
     udev
     util-linux
     xdg-utils
