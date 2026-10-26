@@ -23,7 +23,7 @@
      // Do not interfere with a portal explicitly installed from another Strata build.
      if !read_utf8(&service)?
          .lines()
-@@ -788,6 +793,18 @@
+@@ -788,6 +793,26 @@
  fn secure_executable_for_user(path: &Path, effective_user: u32) -> Result<PathBuf, String> {
      let path = fs::canonicalize(path)
          .map_err(|error| path_error("resolve the Strata executable", path, error))?;
@@ -39,17 +39,29 @@
 +    } else {
 +        None
 +    };
++    let nix_store_root = Path::new("/nix/store");
++    let multi_user_nix_store = fs::metadata(nix_store_root)
++        .ok()
++        .is_some_and(|root| {
++            root.is_dir()
++                && root.uid() == 0
++                && root.permissions().mode() & 0o1000 != 0
++        });
      for (index, component) in path.ancestors().enumerate() {
          let metadata = fs::metadata(component)
              .map_err(|error| path_error("inspect the Strata executable path", component, error))?;
-@@ -807,13 +824,28 @@
+@@ -807,13 +832,32 @@
                  "The Strata executable path must be owned by the current user or root",
              ));
          }
 -        if metadata.permissions().mode() & 0o022 != 0 {
-+        // Store entries must be root-owned so the sticky store cannot expose a
-+        // user-owned package to replacement by its owner.
-+        if component.starts_with("/nix/store") && metadata.uid() != 0 {
++        // In a multi-user daemon store, package paths must be root-owned so their
++        // owner cannot replace a read-only entry. Single-user stores are user-owned.
++        if component.starts_with(nix_store_root)
++            && component != nix_store_root
++            && multi_user_nix_store
++            && metadata.uid() != 0
++        {
 +            return Err(
 +                "The Strata executable path in the Nix store must be owned by root".to_owned(),
 +            );
@@ -57,7 +69,7 @@
 +        // The root-owned, sticky Nix store allows new entries but does not let
 +        // builders replace the root-owned, read-only package checked above.
 +        // No other group/world-writable ancestor receives this exception.
-+        let nix_store = component == Path::new("/nix/store")
++        let nix_store = component == nix_store_root
 +            && metadata.is_dir()
 +            && metadata.uid() == 0
 +            && metadata.permissions().mode() & 0o1000 != 0
