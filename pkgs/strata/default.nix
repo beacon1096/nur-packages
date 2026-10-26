@@ -63,8 +63,15 @@ let
     gst-plugins-good
     gstreamer
   ];
+
+  # kstring 2.0.4+ needs rustc ≥ 1.96; nixos-26.05 still ships 1.95.
+  unstablePkgs = import (builtins.fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz";
+    sha256 = "sha256-rZLrzrC6i+jnTAlvPZHogKDulY7WWDEv9hJeHieO7Zw=";
+  }) { };
+  strataRustPlatform = unstablePkgs.rustPlatform;
 in
-rustPlatform.buildRustPackage (finalAttrs: {
+strataRustPlatform.buildRustPackage (finalAttrs: {
   __structuredAttrs = true;
 
   pname = "strata";
@@ -296,7 +303,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     license = [ lib.licenses.mit ] ++ lib.optional enableRar lib.licenses.unfreeRedistributable;
     mainProgram = "strata";
     # The GTK Rust bindings require Rust 1.92; skip older CI package sets.
-    broken = lib.versionOlder rustc.version "1.92";
+    broken = lib.versionOlder unstablePkgs.rustc.version "1.92";
     maintainers = [ ];
     platforms = lib.platforms.linux;
     sourceProvenance = [ lib.sourceTypes.fromSource ];
