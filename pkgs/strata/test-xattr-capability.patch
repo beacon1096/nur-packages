@@ -1,6 +1,6 @@
 --- a/src/adapters/local_operations/tests/restore_safety.rs
 +++ b/src/adapters/local_operations/tests/restore_safety.rs
-@@ -312,12 +312,21 @@
+@@ -737,12 +737,21 @@ fn restore_directory_copy_preserves_permissions_times_and_xattrs() -> Result<(),
              .set_accessed(accessed)
              .set_modified(modified),
      )?;
@@ -22,9 +22,9 @@
 +        Err(error) => return Err(error.into()),
 +    };
      let destination = fixture.path().join("destination");
-     glib::MainContext::default().block_on(move_restore_path_with(
-         source.clone(),
-@@ -330,10 +339,12 @@
+     let source_inode = fs::metadata(&source)?.ino();
+     let _scope = FsQuirks::install(fixture.path(), Quirks::without_placement());
+@@ -752,10 +761,12 @@ fn restore_directory_copy_preserves_permissions_times_and_xattrs() -> Result<(),
      assert_eq!(fs::metadata(&destination)?.mode() & 0o777, 0o750);
      assert_eq!(fs::metadata(&destination)?.modified()?, modified);
      assert_eq!(fs::metadata(&destination)?.accessed()?, accessed);

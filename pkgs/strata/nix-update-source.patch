@@ -1,6 +1,66 @@
+--- a/src/services/install_source/tests.rs
++++ b/src/services/install_source/tests.rs
+@@ -32,6 +32,19 @@ fn load(contents: &str) -> InstallSource {
+     InstallSource::load(&path)
+ }
+ 
++#[test]
++fn a_nix_marker_keeps_the_read_only_executable_protected() {
++    let source = load("manager = \"Nix\"\npackage = \"strata\"");
++    assert!(source.is_managed());
++    let managed = source.managed().expect("a managed install");
++    assert_eq!(managed.ownership_summary(), "Installed by Nix as strata.");
++    assert_eq!(managed.update_instruction(), "Update Strata through Nix.");
++    assert_eq!(
++        ensure_self_managed(&source),
++        Err("Installed by Nix as strata. Update Strata through Nix.".to_owned())
++    );
++}
++
+ #[test]
+ fn a_missing_marker_means_a_user_owned_install() {
+     assert_eq!(
+--- a/src/services/update_check.rs
++++ b/src/services/update_check.rs
+@@ -753,6 +753,10 @@ pub fn check_for_updates(
+             let result = match update_method {
+                 UpdateMethod::InPlace => fetch_update(channel, &installed, force),
+                 UpdateMethod::Aur => fetch_package_update(&installed, aur_repository_version),
++                UpdateMethod::Nix => UpdateCheck::Failed(
++                    rust_i18n::t!("Update Strata through %{manager}.", manager = "Nix")
++                        .into_owned(),
++                ),
+                 UpdateMethod::Omarchy => {
+                     fetch_package_update(&installed, omarchy_repository_version)
+                 }
+--- a/src/services/update_check/tests.rs
++++ b/src/services/update_check/tests.rs
+@@ -33,6 +33,22 @@ fn matching_asset_json(version: &str) -> String {
+     format!(r#"{{"name":"{name}","browser_download_url":"https://example.invalid/{name}"}}"#)
+ }
+ 
++#[test]
++fn nix_update_checks_return_package_management_guidance_without_a_repository_query() {
++    let result = super::check_for_updates(
++        Channel::Stable,
++        version("1.0.0"),
++        crate::services::UpdateMethod::Nix,
++        true,
++    )
++    .recv_timeout(std::time::Duration::from_secs(2))
++    .expect("Nix checks complete without a network request");
++    assert_eq!(
++        result,
++        UpdateCheck::Failed("Update Strata through Nix.".to_owned())
++    );
++}
++
+ #[test]
+ fn package_update_requires_the_release_matching_the_repository_version() {
+     let asset = matching_asset_json("0.8.2");
 --- a/src/services/update_install.rs
 +++ b/src/services/update_install.rs
-@@ -46,6 +46,7 @@
+@@ -49,6 +49,7 @@ const REPOSITORY_DATABASE_LIMIT: u64 = 4 * 1024 * 1024;
  pub enum UpdateMethod {
      InPlace,
      Aur,
@@ -8,7 +68,7 @@
      Omarchy,
      Pacman,
  }
-@@ -167,15 +168,25 @@
+@@ -170,10 +171,10 @@ fn is_release_token(value: &str) -> bool {
  }
  
  /// Determines whether the running executable may be updated in place or is
@@ -22,11 +82,14 @@
      }
      let Ok(executable) = installed_executable() else {
          return UpdateMethod::InPlace;
-     };
+@@ -181,6 +182,19 @@ pub fn update_method() -> UpdateMethod {
      update_method_for(&executable, Path::new(PACMAN), Path::new(OS_RELEASE))
-+}
-+
+ }
+ 
 +fn update_method_from_marker(source: &InstallSource) -> Option<UpdateMethod> {
++    if !source.is_managed() {
++        return None;
++    }
 +    source.managed().map(|managed| {
 +        if managed.manager() == "Nix" {
 +            UpdateMethod::Nix
@@ -34,10 +97,12 @@
 +            UpdateMethod::Aur
 +        }
 +    })
- }
- 
++}
++
  fn update_method_for(executable: &Path, pacman: &Path, os_release: &Path) -> UpdateMethod {
-@@ -508,7 +519,7 @@
+     let package_owned = match Command::new(pacman)
+         .args(["--query", "--owns", "--quiet", "--"])
+@@ -511,7 +525,7 @@ fn perform_install(
      ensure_self_managed(InstallSource::detect())?;
      match update_method() {
          UpdateMethod::InPlace => {}
@@ -48,7 +113,7 @@
              )));
 --- a/src/services/update_install/tests.rs
 +++ b/src/services/update_install/tests.rs
-@@ -16,9 +16,31 @@
+@@ -16,10 +16,32 @@ use super::{
      download::DownloadTimeouts, download_to_file_bounded, download_to_file_with, is_old_instance,
      package_repository_version_for, parse_aur_package_version, parse_package_version,
      refresh_desktop_metadata, repository_database_version, restore_rollback, retire_old_instances,
@@ -57,7 +122,7 @@
 +    stage_binary_path, stage_rollback, stage_workdir, update_method_for, update_method_from_marker,
 +    verified_download_url, verify_staged_binary,
  };
-+
+ 
 +#[test]
 +fn nix_markers_never_select_the_aur_update_source() {
 +    for (marker, expected) in [
@@ -79,83 +144,24 @@
 +        None
 +    );
 +}
- 
++
  #[test]
  fn old_instance_selection_retires_chooser_and_file_manager_not_helpers_or_other_binaries() {
---- a/src/services/install_source/tests.rs
-+++ b/src/services/install_source/tests.rs
-@@ -30,6 +30,19 @@
- fn load(contents: &str) -> InstallSource {
-     let (_directory, path) = marker(contents);
-     InstallSource::load(&path)
-+}
-+
-+#[test]
-+fn a_nix_marker_keeps_the_read_only_executable_protected() {
-+    let source = load("manager = \"Nix\"\npackage = \"strata\"");
-+    assert!(source.is_managed());
-+    let managed = source.managed().expect("a managed install");
-+    assert_eq!(managed.ownership_summary(), "Installed by Nix as strata.");
-+    assert_eq!(managed.update_instruction(), "Update Strata through Nix.");
-+    assert_eq!(
-+        ensure_self_managed(&source),
-+        Err("Installed by Nix as strata. Update Strata through Nix.".to_owned())
-+    );
- }
- 
- #[test]
---- a/src/services/update_check.rs
-+++ b/src/services/update_check.rs
-@@ -666,6 +666,10 @@
-             let result = match update_method {
-                 UpdateMethod::InPlace => fetch_update(channel, &installed, force),
-                 UpdateMethod::Aur => fetch_package_update(&installed, aur_repository_version),
-+                UpdateMethod::Nix => UpdateCheck::Failed(
-+                    rust_i18n::t!("Update Strata through %{manager}.", manager = "Nix")
-+                        .into_owned(),
-+                ),
-                 UpdateMethod::Omarchy => {
-                     fetch_package_update(&installed, omarchy_repository_version)
-                 }
---- a/src/services/update_check/tests.rs
-+++ b/src/services/update_check/tests.rs
-@@ -31,6 +31,22 @@
- fn matching_asset_json(version: &str) -> String {
-     let name = archive_name(version);
-     format!(r#"{{"name":"{name}","browser_download_url":"https://example.invalid/{name}"}}"#)
-+}
-+
-+#[test]
-+fn nix_update_checks_return_package_management_guidance_without_a_repository_query() {
-+    let result = super::check_for_updates(
-+        Channel::Stable,
-+        version("1.0.0"),
-+        crate::services::UpdateMethod::Nix,
-+        true,
-+    )
-+    .recv_timeout(std::time::Duration::from_secs(2))
-+    .expect("Nix checks complete without a network request");
-+    assert_eq!(
-+        result,
-+        UpdateCheck::Failed("Update Strata through Nix.".to_owned())
-+    );
- }
- 
- #[test]
+     let root = tempfile::tempdir().expect("process fixture");
 --- a/src/ui/settings.rs
 +++ b/src/ui/settings.rs
-@@ -227,6 +227,10 @@
-     let weak_manager = Rc::downgrade(manager);
-     resolve_update_method_async(move |method| {
+@@ -260,6 +260,10 @@ pub(super) fn maybe_run_due_update_check(manager: &Rc<PreferenceManager>) {
          if is_stale_check(generation, CHECK_GENERATION.get()) {
-+            return;
-+        }
-+        if method == UpdateMethod::Nix {
-+            CHECK_IN_FLIGHT.set(false);
              return;
          }
++        if method == UpdateMethod::Nix {
++            CHECK_IN_FLIGHT.set(false);
++            return;
++        }
          let receiver = services::check_for_updates(
-@@ -1183,12 +1187,26 @@
+             channel,
+             crate::build_info::installed_version(),
+@@ -1316,12 +1320,26 @@ fn wire_channel_change_check(
      );
  }
  
@@ -182,7 +188,7 @@
              UpdateMethod::Omarchy => {
                  "Check the Omarchy package repository for a newer release when Strata starts."
              }
-@@ -1629,7 +1647,7 @@
+@@ -1762,7 +1780,7 @@ struct PendingInstall {
  /// an offer under the old one.
  fn effective_update_channel(selected: Channel, update_method: UpdateMethod) -> Channel {
      match update_method {
@@ -191,7 +197,7 @@
          UpdateMethod::Omarchy | UpdateMethod::Pacman => Channel::Stable,
      }
  }
-@@ -1701,6 +1719,10 @@
+@@ -1834,6 +1852,10 @@ fn update_check_row_with(
      progress.set_visible(false);
      copy.append(&progress);
      let button = gtk::Button::with_label(&crate::i18n::tr("Check now"));
@@ -202,7 +208,7 @@
      button.add_css_class("settings-update-check");
      button.set_valign(gtk::Align::Center);
      summary.append(&copy);
-@@ -1739,6 +1761,9 @@
+@@ -1872,6 +1894,9 @@ fn update_check_row_with(
          let manager = manager.clone();
          let row_generation = row_generation.clone();
          move |force: bool| {
@@ -212,7 +218,7 @@
              // Always start a fresh check rather than dropping it: a channel
              // toggle must never be silently ignored just because a previous
              // check (for the old channel) is still in flight. The stale
-@@ -1857,7 +1882,7 @@
+@@ -1990,7 +2015,7 @@ fn update_check_row_with(
                                      button.set_label(&crate::i18n::tr(match update_method {
                                          UpdateMethod::Aur => aur_update_action_label(),
                                          UpdateMethod::Omarchy => "Open Omarchy Update",
@@ -221,36 +227,36 @@
                                          UpdateMethod::InPlace => unreachable!(),
                                      }));
                                  } else {
-@@ -1901,6 +1926,9 @@
+@@ -2034,6 +2059,9 @@ fn update_check_row_with(
      let row_status = status.clone();
      let row_pending_download = pending_download.clone();
      button.connect_clicked(move |button| {
 +        if update_method == UpdateMethod::Nix {
 +            return;
 +        }
-         if update_method == UpdateMethod::Aur && managed_update_available.get() {
-             match launch_aur_update() {
-                 Ok(message) => status.set_text(&message),
-@@ -2397,7 +2425,7 @@
-             UpdateMethod::InPlace => "Download update",
-             UpdateMethod::Aur => aur_action,
-             UpdateMethod::Omarchy => "Open Omarchy Update",
--            UpdateMethod::Pacman => "Close",
-+            UpdateMethod::Pacman | UpdateMethod::Nix => "Close",
+         if matches!(update_method, UpdateMethod::Aur | UpdateMethod::Omarchy)
+             && managed_update_available.get()
+         {
+@@ -2568,7 +2596,7 @@ fn build_update_dialog(
+             (UpdateMethod::InPlace, UpdateOffer::Chosen) => "Install release",
+             (UpdateMethod::Aur, _) => aur_action,
+             (UpdateMethod::Omarchy, _) => "Open Omarchy Update",
+-            (UpdateMethod::Pacman, _) => "Close",
++            (UpdateMethod::Pacman | UpdateMethod::Nix, _) => "Close",
          }),
      );
      layout.content.add_css_class("update-dialog");
-@@ -2446,7 +2474,7 @@
-         UpdateMethod::InPlace => {
-             crate::i18n::tr("Review the release notes before downloading the update.")
-         }
+@@ -2620,7 +2648,7 @@ fn build_update_dialog(
+             UpdateOffer::Available => "Review the release notes before downloading the update.",
+             UpdateOffer::Chosen => "Review the release notes before installing this release.",
+         }),
 -        UpdateMethod::Aur => InstallSource::detect()
 +        UpdateMethod::Aur | UpdateMethod::Nix => InstallSource::detect()
              .managed()
              .map(update_dialog_status)
              .unwrap_or_else(|| {
-@@ -2609,7 +2637,7 @@
-             }
+@@ -2776,7 +2804,7 @@ fn build_update_dialog(
+             });
              return;
          }
 -        if update_method == UpdateMethod::Pacman {
@@ -258,7 +264,7 @@
              dismiss_modal_layer(&action_layer, &action_overlay, action_root.as_ref());
              button.set_sensitive(false);
              return;
-@@ -2908,6 +2936,12 @@
+@@ -3110,6 +3138,12 @@ fn installed_version_status(
              ),
          }
          .into_owned(),
@@ -271,7 +277,7 @@
          UpdateMethod::Omarchy => {
              rust_i18n::t!("%{version} · Managed by Omarchy", version = version).into_owned()
          }
-@@ -2940,7 +2974,7 @@
+@@ -3142,7 +3176,7 @@ fn update_check_message(result: &UpdateCheck, update_method: UpdateMethod) -> St
              let url = glib::markup_escape_text(&release.url);
              let version = glib::markup_escape_text(&release.version);
              match update_method {
@@ -282,7 +288,7 @@
              }
 --- a/src/ui/settings/tests/updates.rs
 +++ b/src/ui/settings/tests/updates.rs
-@@ -128,3 +128,56 @@
+@@ -129,3 +129,56 @@ fn release_notes_hide_html_comments_and_show_the_empty_message_without_blocks()
          },
      );
  }
@@ -341,7 +347,7 @@
 +}
 --- a/src/ui/window/composition/settings.rs
 +++ b/src/ui/window/composition/settings.rs
-@@ -193,7 +193,7 @@
+@@ -202,7 +202,7 @@ fn update_tooltip(release: &ReleaseMetadata, method: UpdateMethod) -> String {
          UpdateMethod::InPlace => {
              rust_i18n::t!("Install Strata v%{value1}", value1 = release.version).into_owned()
          }
