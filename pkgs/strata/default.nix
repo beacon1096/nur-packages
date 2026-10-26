@@ -1,6 +1,7 @@
 {
   bubblewrap,
   cairo,
+  cargo,
   coreutils,
   coreutils-prefixed,
   dbus,
@@ -21,6 +22,7 @@
   libraw,
   librsvg,
   makeFontsConf,
+  makeRustPlatform,
   nix-update-script,
   pkg-config,
   poppler,
@@ -64,41 +66,44 @@ let
     gstreamer
   ];
 
-  # kstring 2.0.4+ needs rustc ≥ 1.96; nixos-26.05 still ships 1.95.
-  unstablePkgs = import (builtins.fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz";
-    sha256 = "sha256-rZLrzrC6i+jnTAlvPZHogKDulY7WWDEv9hJeHieO7Zw=";
-  }) { };
-  strataRustPlatform = unstablePkgs.rustPlatform;
+  # kstring 2.0.4 (via strata's lockfile) declares rust-version = "1.96.0", so
+  # the package needs a newer rustc than the nixpkgs release branches ship
+  # (26.05: 1.95.0, 25.11: 1.91.1). Fetching another nixpkgs at evaluation time
+  # to borrow a toolchain would break `restrict-eval` for the whole package set
+  # (see .github/workflows/build.yml), so rustc and cargo stay overridable and
+  # consumers on an older package set inject a new enough pair:
+  #
+  #   strata.override { inherit (unstable) rustc cargo; }
+  #
+  # The rustPlatform is rebuilt from those two so the stdenv, cc and libc keep
+  # coming from the calling package set.
+  effectiveRustPlatform = makeRustPlatform { inherit rustc cargo; };
+  minimumRustVersion = "1.96";
 in
-strataRustPlatform.buildRustPackage (finalAttrs: {
+effectiveRustPlatform.buildRustPackage (finalAttrs: {
   __structuredAttrs = true;
 
   pname = "strata";
-  version = "1.0.0";
+  version = "1.1.1";
 
   src = fetchFromGitHub {
     owner = "lgse";
     repo = "strata";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-dFNsFCnkeZs0VwmYRyu+6Jh8XxJzv+agUlP70Fdxa5Q=";
+    hash = "sha256-mWFYDKlVR6/LytRBGmgZlWX70N+Qlt3Ev5W5TmJ8UdE=";
   };
 
-  cargoHash = "sha256-vuhHierqb4WsMdg890NpkaztYnfsnck2FxMz5cPMwCQ=";
+  cargoHash = "sha256-+8Ztfdf/523VTH4nozy9b5Fde+GTk0xWRMbBUBA5rKs=";
 
-  # Nix adaptations to https://github.com/lgse/strata/tree/v1.0.0.
+  # Nix adaptations to https://github.com/lgse/strata/tree/v1.1.1.
   # These have not been submitted upstream; remove them as upstream adopts them.
   patches = [
     # Validate the store permissions and retain the GApps wrapper during setup.
     ./desktop.patch
-    # Trusted helper lookup otherwise only searches fixed FHS directories.
-    ./trusted-helper-path.patch
     # Nix installs are package-managed, but must not use the AUR updater.
     ./nix-update-source.patch
     # Normalize only the test namespace's unmapped root owner, not production.
     ./test-sandbox-root.patch
-    # Removing a recent app must leave a compatible app to open the chooser.
-    ./test-open-with-fixture.patch
     # The archive fixture needs a store-provided tar, not trusted runtime lookup.
     ./test-release-tar.patch
     # Keep permission/time checks on filesystems without user xattr support.
@@ -207,7 +212,7 @@ strataRustPlatform.buildRustPackage (finalAttrs: {
     CARGO_PROFILE_TEST_DEBUG = "0";
     STRATA_BUILD_KIND = "stable";
     # Keep the resolved release commit in sync when updating the version.
-    STRATA_BUILD_COMMIT = "0a086aa3bdb251842a1e8413e2a6b35970d0b409";
+    STRATA_BUILD_COMMIT = "be3343a5992a2a5497b1a2ee7faa525be18e988f";
     STRATA_RELEASE_TAG = "v${finalAttrs.version}";
     STRATA_SANDBOX_GDK_PIXBUF_MODULE_FILE = "${lib.getOutput "out" librsvg}/${gdk-pixbuf.binaryDir}/loaders.cache";
     STRATA_SANDBOX_PATH = lib.makeBinPath runtimeTools;
@@ -302,8 +307,9 @@ strataRustPlatform.buildRustPackage (finalAttrs: {
     homepage = "https://stratafiles.io/";
     license = [ lib.licenses.mit ] ++ lib.optional enableRar lib.licenses.unfreeRedistributable;
     mainProgram = "strata";
-    # The GTK Rust bindings require Rust 1.92; skip older CI package sets.
-    broken = lib.versionOlder unstablePkgs.rustc.version "1.92";
+    # Skip package sets whose toolchain cannot meet kstring's MSRV. Overriding
+    # rustc/cargo (see above) clears this automatically.
+    broken = lib.versionOlder rustc.version minimumRustVersion;
     maintainers = [ ];
     platforms = lib.platforms.linux;
     sourceProvenance = [ lib.sourceTypes.fromSource ];
