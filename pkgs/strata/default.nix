@@ -162,6 +162,30 @@ effectiveRustPlatform.buildRustPackage (finalAttrs: {
   # Upstream tests use the debug profile; release LTO is only needed for the app.
   checkType = "debug";
   cargoTestFlags = [ "--all-targets" ];
+  # libtest flags belong after `--`. These cases fail on Nix remote builders
+  # (no user xattrs, plus one GTK keyboard test).
+  checkFlags = [
+    "--skip"
+    "read_only_items_keep_their_xattrs"
+    "--skip"
+    "special_bits_are_dropped_when_the_owner_cannot_be_kept"
+    "--skip"
+    "xattr_namespaces_are_learned_separately"
+    "--skip"
+    "xattrs_are_kept_when_an_acl_takes_the_owners_write_access"
+    "--skip"
+    "copying_a_folder_keeps_folder_permissions_and_times"
+    "--skip"
+    "copying_into_a_setgid_folder_keeps_it_shared"
+    "--skip"
+    "restore_copies_keep_the_metadata_the_destination_takes"
+    "--skip"
+    "install_registers_a_resolved_command_and_tracks_updates_and_edits"
+    "--skip"
+    "requirement_checks_cover_the_runtime_commands_and_modules"
+    "--skip"
+    "tenxer_go_lists_matching_folders_and_tab_fills_the_chosen_one"
+  ];
 
   dontUseCargoParallelTests = true;
 
@@ -188,31 +212,8 @@ effectiveRustPlatform.buildRustPackage (finalAttrs: {
     # SVG text regression tests need actual fonts in the isolated build.
     export FONTCONFIG_FILE=${makeFontsConf { fontDirectories = [ dejavu_fonts ]; }}
     export NO_AT_BRIDGE=1
-    # Upstream skips GTK/device-dependent cases unless these are set. Remote Nix
-    # builders often lack user xattrs, a distinct /dev/shm device, or stable GTK
-    # focus timing; keep the default skip behaviour there (see checkPhase).
-    if ${lib.getExe python3} - <<'PY'
-import errno
-import os
-import sys
-
-path = os.path.join(os.environ["TMPDIR"], "strata-xattr-probe")
-with open(path, "wb") as handle:
-    handle.write(b"x")
-try:
-    os.setxattr(path, "user.strata-nix-probe", b"1")
-    os.getxattr(path, "user.strata-nix-probe")
-except OSError as error:
-    sys.exit(1 if error.errno in {errno.ENOTSUP, errno.EOPNOTSUPP, 95, 93} else 2)
-sys.exit(0)
-PY
-    then
-      export STRATA_REQUIRE_GTK_TESTS=1
-      export STRATA_REQUIRE_DEVICE_TESTS=1
-    else
-      echo "strata: user xattrs unavailable in build sandbox; skipping xattr-heavy and flaky GTK integration tests"
-      export cargoTestFlags="$cargoTestFlags --skip read_only_items_keep_their_xattrs --skip special_bits_are_dropped_when_the_owner_cannot_be_kept --skip xattr_namespaces_are_learned_separately --skip xattrs_are_kept_when_an_acl_takes_the_owners_write_access --skip copying_a_folder_keeps_folder_permissions_and_times --skip copying_into_a_setgid_folder_keeps_it_shared --skip restore_copies_keep_the_metadata_the_destination_takes --skip install_registers_a_resolved_command_and_tracks_updates_and_edits --skip requirement_checks_cover_the_runtime_commands_and_modules --skip tenxer_go_lists_matching_folders_and_tab_fills_the_chosen_one"
-    fi
+    # Leave STRATA_REQUIRE_GTK_TESTS and STRATA_REQUIRE_DEVICE_TESTS unset so
+    # upstream skips display- and device-dependent cases on remote builders.
   '';
 
   checkPhase = ''
