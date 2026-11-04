@@ -21,17 +21,17 @@
 }:
 
 let
-  releaseVersion = "4.0.0+bunny-aac68df";
+  releaseVersion = "4.0.0+bunny.5f48f7b";
   # callPackage may supply nixpkgs' throwing compatibility alias automatically.
   legacyWrapGAppsHook = builtins.tryEval wrapGAppsHook;
 in
 stdenv.mkDerivation {
   pname = "bakaxl-bunny";
-  version = "4.0.0.bunny_aac68df";
+  version = "4.0.0.bunny.5f48f7b";
 
   src = fetchurl {
     url = "https://github.com/BakaXL-Launcher/BakaXL/releases/download/${releaseVersion}/bakaxl-${releaseVersion}-linux-x86_64.deb";
-    hash = "sha256-/rgDyxM8R/rmWmSUx/nqeWkpW9/vgMJwM/DZMKxMVBE=";
+    hash = "sha256-vlaXsCUQlYXuCHpyioaRHZHf8sVg29RRuM78kvShLy0=";
   };
 
   nativeBuildInputs = [
