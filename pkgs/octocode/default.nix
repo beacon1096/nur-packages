@@ -2,7 +2,6 @@
   lib,
   rustPlatform,
   fetchFromGitHub,
-  fetchpatch2,
   protobuf,
   pkg-config,
   cmake,
@@ -12,13 +11,13 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "octocode";
-  version = "0.13.0";
+  version = "0.29.2";
 
   src = fetchFromGitHub {
     owner = "Muvon";
     repo = "octocode";
     tag = version;
-    hash = "sha256-nyEdkrkaLcqePyOlQQ1n1rlH/CrjTUIEEhzELV9u80U=";
+    hash = "sha256-HhMrESfni7mUjySeuRQm4Zmfg/Op8sCWWoGMSmAeWUQ=";
   };
 
   nativeBuildInputs = [
@@ -34,23 +33,7 @@ rustPlatform.buildRustPackage rec {
 
   buildFeatures = [ "fastembed" "huggingface" ];
 
-  # ethnum 1.5.2 does not compile with rustc >= 1.97 because TryFromIntError is
-  # no longer a zero-sized type. Keep the pinned version and apply the upstream
-  # source fix to the vendored crate.
-  postPatch = ''
-    shopt -s nullglob
-    for crate in "$cargoDepsCopy"/source-registry-*/ethnum-1.5.2; do
-      patch -p1 -d "$crate" < ${
-        fetchpatch2 {
-          name = "ethnum-1.5.2-rustc-1.97.patch";
-          url = "https://github.com/nlordell/ethnum-rs/commit/87e3457c095c98fcac554548ee80f56e0cfb80ae.patch?full_index=1";
-          hash = "sha256-xG3RQg2vF+XW9IiYWaNyOF39WipSeoZGrygsOJ3XgIs=";
-        }
-      }
-    done
-  '';
-
-  cargoHash = "sha256-zz5Woz1VrWudy3NmTKld+lo/417J/xbqKnrOPdfHhyo=";
+  cargoHash = "sha256-i620acS+UyAir2pgXVaBKoZACyrmASuHc5u3HNGyFJ0=";
 
   env = {
     PROTOC = "${protobuf}/bin/protoc";
