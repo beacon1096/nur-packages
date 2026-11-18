@@ -5,20 +5,20 @@
 }:
 
 let
-  version = "1.5.1";
+  version = "1.5.8";
 
   sources = {
     x86_64-linux = {
       url = "https://dl.lazycatmicroserver.com/hclient-cli/v${version}/hclient-cli-linux-amd64";
-      hash = "sha256-oM3ry2Ur2uS6Jv+WgnxVjzaK8Gc62RBUW0SZ+Yl8+mw=";
+      hash = "sha256-NDpuQxUucPT0I0ksiiBeCssN51rzh2BqhN8yBRZ0lE0=";
     };
     aarch64-linux = {
       url = "https://dl.lazycatmicroserver.com/hclient-cli/v${version}/hclient-cli-linux-arm64";
-      hash = "sha256-NIxVyHpMNF6pwFkeujCOeyhrNAllQ7Hkfk4kV8WDLt4=";
+      hash = "sha256-gB8hu22CuUyZ0mUZw6T6qCut0HMbwPvowUEbltfHjg4=";
     };
     riscv64-linux = {
       url = "https://dl.lazycatmicroserver.com/hclient-cli/v${version}/hclient-cli-linux-riscv64";
-      hash = "sha256-Mq9E8q3amkzGlnFqZRLxdvY+YnNH8ZGOjsh27kz1VAQ=";
+      hash = "sha256-335BxGzb1/kbEAqBiIIFi1PMVszgN4jXHdWcMoLghbY=";
     };
   };
 
